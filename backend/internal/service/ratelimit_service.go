@@ -64,7 +64,12 @@ const geminiPrecheckCacheTTL = time.Minute
 
 const (
 	defaultRateLimit429CooldownSeconds = 5
-	maxRateLimit429CooldownSeconds     = 7200
+	// 仅作用于「上游未给出 reset 时间」的兜底冷却（apply429FallbackRateLimit）。
+	// 上游 cliproxy 账号池才是冷却的权威：池里任一号解冷却就秒回 200，仍冷却则秒回 429。
+	// 因此 sub2api 不必自己长锁，只需「到点再探一次」——封顶 1min，故障最坏 1min 恢复，
+	// 重探成本≈0（被 cliproxy 立即拒掉的 429，不打真实模型、不耗 token）。
+	// 注意：上游明确带 resets_at / 限流头的 429 走 handle429 路径 1/2/4，直接落库上游时间，不过此 cap。
+	maxRateLimit429CooldownSeconds = 60
 )
 
 const (

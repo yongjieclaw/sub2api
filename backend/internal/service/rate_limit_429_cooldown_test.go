@@ -52,12 +52,12 @@ func TestGetRateLimit429CooldownSettings_ReadsFromDB(t *testing.T) {
 func TestSetRateLimit429CooldownSettings_EnabledRejectsOutOfRange(t *testing.T) {
 	svc := NewSettingService(newMockSettingRepo(), &config.Config{})
 
-	for _, seconds := range []int{0, -1, 7201, 99999} {
+	for _, seconds := range []int{0, -1, 61, 7201, 99999} {
 		err := svc.SetRateLimit429CooldownSettings(context.Background(), &RateLimit429CooldownSettings{
 			Enabled: true, CooldownSeconds: seconds,
 		})
 		require.Error(t, err, "should reject enabled=true + cooldown_seconds=%d", seconds)
-		require.Contains(t, err.Error(), "cooldown_seconds must be between 1-7200")
+		require.Contains(t, err.Error(), "cooldown_seconds must be between 1-60")
 	}
 }
 
