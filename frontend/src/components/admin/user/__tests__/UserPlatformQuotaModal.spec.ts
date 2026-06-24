@@ -8,6 +8,11 @@ const apiMocks = vi.hoisted(() => ({
   resetPlatformQuotaWindow: vi.fn(),
 }))
 
+const appStoreMocks = vi.hoisted(() => ({
+  showError: vi.fn(),
+  showSuccess: vi.fn(),
+}))
+
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     users: {
@@ -20,8 +25,8 @@ vi.mock('@/api/admin', () => ({
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
-    showError: vi.fn(),
-    showSuccess: vi.fn(),
+    showError: appStoreMocks.showError,
+    showSuccess: appStoreMocks.showSuccess,
   }),
 }))
 
@@ -71,6 +76,8 @@ beforeEach(() => {
   apiMocks.getPlatformQuotas.mockResolvedValue({ platform_quotas: [] })
   apiMocks.updatePlatformQuotas.mockResolvedValue({ platform_quotas: [] })
   apiMocks.resetPlatformQuotaWindow.mockResolvedValue({ platform_quotas: [] })
+  appStoreMocks.showError.mockReset()
+  appStoreMocks.showSuccess.mockReset()
 })
 
 describe('UserPlatformQuotaModal', () => {
@@ -123,6 +130,15 @@ describe('UserPlatformQuotaModal', () => {
     expect(payload).toHaveLength(4) // 4 platforms always submitted
     const openai = payload.find((p: any) => p.platform === 'openai')
     expect(openai.weekly_limit_usd).toBe(20)
+  })
+
+  it('保存失败时展示 apiClient plain object 的真实 message', async () => {
+    apiMocks.updatePlatformQuotas.mockRejectedValueOnce({ status: 403, message: 'Admin access required' })
+    const w = await mountAndOpen()
+    const saveBtn = w.findAll('button').find((b) => b.text() === 'admin.users.platformQuota.save')
+    await saveBtn!.trigger('click')
+    await flushPromises()
+    expect(appStoreMocks.showError).toHaveBeenCalledWith('Admin access required')
   })
 
   it('全部清空把所有 limit 置 null（确认通过）', async () => {
@@ -185,6 +201,17 @@ describe('UserPlatformQuotaModal', () => {
     await resetBtns[0].trigger('click') // 第一个是 anthropic.daily
     await flushPromises()
     expect(apiMocks.resetPlatformQuotaWindow).toHaveBeenCalledWith(99, 'anthropic', 'daily')
+    confirmSpy.mockRestore()
+  })
+
+  it('重置失败时展示 apiClient plain object 的真实 message', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    apiMocks.resetPlatformQuotaWindow.mockRejectedValueOnce({ status: 400, message: 'user platform quota not found' })
+    const w = await mountAndOpen()
+    const resetBtns = w.findAll('button').filter((b) => b.text() === '↻')
+    await resetBtns[0].trigger('click')
+    await flushPromises()
+    expect(appStoreMocks.showError).toHaveBeenCalledWith('user platform quota not found')
     confirmSpy.mockRestore()
   })
 
